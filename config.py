@@ -7,6 +7,7 @@ environment: ``dev``, ``test`` and ``prod``.
 import os
 
 from dotenv import load_dotenv
+from sqlalchemy.pool import StaticPool
 
 load_dotenv()
 
@@ -31,9 +32,17 @@ class DevConfig(Config):
 
 
 class TestConfig(Config):
-    """Automated tests — in-memory SQLite, no side effects on disk."""
+    """Automated tests — in-memory SQLite, no side effects on disk.
+
+    StaticPool makes every session share one connection, so the
+    in-memory database persists across requests in a test run.
+    """
     TESTING = True
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'poolclass': StaticPool,
+        'connect_args': {'check_same_thread': False},
+    }
 
 
 class ProdConfig(Config):

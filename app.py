@@ -31,18 +31,13 @@ def create_app(env='dev'):
     # Upload folder for study notes (size cap set in config.py).
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-    # Register API blueprints. routes.py is still under development
-    # (see README Roadmap) — the app boots without it so the skeleton
-    # stays runnable while the handlers are being written.
-    try:
-        from routes import auth_bp, notes_bp, quizzes_bp, performance_bp
-    except ImportError:
-        pass
-    else:
-        app.register_blueprint(auth_bp, url_prefix='/api/auth')
-        app.register_blueprint(notes_bp, url_prefix='/api/notes')
-        app.register_blueprint(quizzes_bp, url_prefix='/api/quizzes')
-        app.register_blueprint(performance_bp, url_prefix='/api/performance')
+    # Register API blueprints (auth, notes, quizzes, performance).
+    from routes import auth_bp, notes_bp, quizzes_bp, performance_bp
+
+    app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    app.register_blueprint(notes_bp, url_prefix='/api/notes')
+    app.register_blueprint(quizzes_bp, url_prefix='/api/quizzes')
+    app.register_blueprint(performance_bp, url_prefix='/api/performance')
 
     with app.app_context():
         db.create_all()

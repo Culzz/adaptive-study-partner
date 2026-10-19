@@ -3,37 +3,40 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Flask](https://img.shields.io/badge/Flask-2.3-blue.svg)](https://flask.palletsprojects.com/)
-[![Status: Backend skeleton](https://img.shields.io/badge/status-backend%20skeleton-orange.svg)](#status)
+[![CI](https://github.com/Culzz/adaptive-study-partner/actions/workflows/ci.yml/badge.svg)](https://github.com/Culzz/adaptive-study-partner/actions/workflows/ci.yml)
 
-An adaptive study companion for university students: upload notes, take quizzes, and get review recommendations prioritised by **forgetting risk** — a spaced-repetition style signal that estimates which topics you're about to lose.
+An adaptive study companion for university students: upload notes, take quizzes, and get a revision plan prioritised by **forgetting risk** — a spaced-repetition signal that estimates which topics you're about to lose.
 
 ## How it adapts
 
-Every topic a student studies gets a mastery record:
+Every topic gets a mastery record. After each quiz answer the API updates it:
 
 | Signal | Meaning |
 |---|---|
-| `score` (0–1) | Current mastery of the topic |
-| `review_count` | How many times it has been reviewed |
-| `last_reviewed` | When it was last revised |
-| `forgetting_risk` (%) | Estimated probability the knowledge has faded |
+| `score` (0–1) | Rolling accuracy across every attempt on the topic |
+| `review_count` | How many questions you've answered on it |
+| `last_reviewed` | When you last practised it |
+| `forgetting_risk` (%) | Ebbinghaus-style decay: `R = exp(-t/S)`, risk = `(1-R)×100` |
 
-Review recommendations are ordered by `forgetting_risk`, so the student sees the topic most likely to have decayed first — the same principle behind spaced repetition, applied per topic rather than per deck.
+Memory stability `S` grows with practice (`S = (1 + 0.5·reviews) × (0.5 + 1.5·score)` days), so well-learned topics fade slower. `/api/performance/review-plan` orders topics by risk and tells you what to review today.
 
 ## Status
 
-> **This repository currently contains the backend skeleton.** The data model, configuration layer, and app factory are complete and runnable. Two pieces are still in development:
+**Working today (API complete, tested):**
 
-- **`routes.py`** — the four API blueprints (`/api/auth`, `/api/notes`, `/api/quizzes`, `/api/performance`) are designed and registered by the app factory, but their handlers have not landed yet. The server boots cleanly without them.
-- **React frontend** — `package.json` declares the intended stack (React 18, React Router, Chart.js); the `src/` scaffold has not been committed yet.
+- ✅ Student registration / login (JWT auth, bcrypt password hashing)
+- ✅ Study-note upload and retrieval
+- ✅ Quiz creation, answering, and per-question grading
+- ✅ Mastery tracking with forgetting-risk computation
+- ✅ Revision plan endpoint ordered by forgetting risk
+- ✅ 5 end-to-end API tests + CI
 
-See the [Roadmap](#roadmap) below.
+**In development:** React frontend (see Roadmap).
 
 ## Tech Stack
 
-- **Backend** — Flask · SQLAlchemy (Flask-SQLAlchemy) · bcrypt password hashing · Flask-CORS
+- **Backend** — Flask · SQLAlchemy (Flask-SQLAlchemy) · PyJWT · bcrypt · Flask-CORS
 - **Database** — SQLite by default, PostgreSQL via `DATABASE_URL`
-- **Frontend (planned)** — React 18 · React Router · Axios · Chart.js
 - **Serving** — Flask dev server locally, gunicorn (`wsgi.py`) in production
 
 ## Project Structure
@@ -41,11 +44,14 @@ See the [Roadmap](#roadmap) below.
 ```
 adaptive-study-partner/
 ├── app.py            # app factory + local dev server
+├── routes.py         # the four API blueprints
+├── forgetting.py     # Ebbinghaus forgetting-curve maths
 ├── wsgi.py           # production entry point (gunicorn wsgi:app)
 ├── config.py         # dev / test / prod configuration
 ├── models.py         # 6 SQLAlchemy models (Student, Note, Quiz, ...)
+├── tests/            # end-to-end API tests (pytest)
 ├── .env.example      # environment template
-├── requirements.txt
+├── requirements.txt  # runtime dependencies
 └── package.json      # frontend stack declaration (source pending)
 ```
 
@@ -70,6 +76,13 @@ python app.py
 
 The API will be available at `http://127.0.0.1:5000`.
 
+### Run the tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
 ### Production
 
 ```bash
@@ -81,10 +94,42 @@ FLASK_ENV=prod gunicorn wsgi:app
 | Variable | Default | Purpose |
 |---|---|---|
 | `FLASK_ENV` | `dev` | Selects `dev` / `test` / `prod` config |
-| `SECRET_KEY` | dev fallback | Flask secret — **must** be set for production |
+| `SECRET_KEY` | dev fallback | Flask secret + JWT signing — **must** be set for production |
 | `DATABASE_URL` | `sqlite:///study.db` | SQLAlchemy database URI |
 | `FLASK_DEBUG` | `true` | Werkzeug debug mode |
 | `HOST` / `PORT` | `127.0.0.1` / `5000` | Dev server bind address |
+
+## API Reference
+
+Auth endpoints are public; everything else requires `Authorization: Bearer <token>`.
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/api/auth/register` | Create an account → returns token |
+| POST | `/api/auth/login` | Verify credentials → returns token |
+| GET | `/api/auth/me` | Current student profile |
+| GET/POST | `/api/notes/` | List / upload a study note (`.txt`/`.md`) |
+| GET | `/api/notes/<id>` | Full note content |
+| GET/POST | `/api/quizzes/` | List / create a quiz (title = topic) |
+| GET | `/api/quizzes/<id>` | Quiz questions (answers withheld) |
+| POST | `/api/quizzes/<id>/answers` | Answer a question → grade + updated mastery |
+| GET | `/api/performance/mastery` | Mastery records, most-at-risk first |
+| GET | `/api/performance/review-plan` | Revision plan with action hints |
+
+### Quick curl tour
+
+```bash
+TOKEN=$(curl -s -X POST localhost:5000/api/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Ada","email":"ada@school.edu","password":"s3cure-pass","matric":"22/CSC/001"}' \
+  | python -c "import sys,json;print(json.load(sys.stdin)['token'])")
+
+curl -s -X POST localhost:5000/api/quizzes/ -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Operating Systems","questions":[{"question":"CPU stands for?","options":["A","B","C","D"],"correct":"Central Processing Unit"}]}'
+
+curl -s localhost:5000/api/performance/review-plan -H "Authorization: Bearer $TOKEN"
+```
 
 ## Data Model
 
@@ -92,27 +137,19 @@ FLASK_ENV=prod gunicorn wsgi:app
 |---|---|
 | `Student` | Accounts with bcrypt-hashed passwords and matric number |
 | `Note` | Uploaded study notes with extracted text content (50 MB cap) |
-| `Quiz` / `Question` | Quizzes with per-question difficulty |
+| `Quiz` / `Question` | Quizzes with per-question difficulty (quiz title = topic) |
 | `QuizAttempt` | Per-answer correctness and time spent |
-| `Mastery` | Per-topic mastery + forgetting risk (the adaptive core) |
-
-## API Design (in development)
-
-| Prefix | Planned scope |
-|---|---|
-| `/api/auth` | Registration, login, sessions |
-| `/api/notes` | Upload, list, and read study notes |
-| `/api/quizzes` | Quiz creation, attempt recording |
-| `/api/performance` | Mastery, review history, forgetting-risk view |
+| `Mastery` | Per-topic score, review count, and forgetting risk |
 
 ## Roadmap
 
-- [ ] `routes.py` — implement the four blueprints above
+- [x] `routes.py` — auth, notes, quizzes, performance blueprints
+- [x] Forgetting-curve computation behind `Mastery.forgetting_risk`
+- [x] Review-plan endpoint ordered by forgetting risk
+- [x] Test suite + CI
 - [ ] React frontend scaffold (`src/`, `public/`)
-- [ ] Forgetting-curve calculation behind `Mastery.forgetting_risk`
-- [ ] Review-recommendation endpoint ordered by forgetting risk
-- [ ] Test suite (the `TestConfig` profile is already wired for it)
-- [ ] CI workflow
+- [ ] PDF note extraction (`pdfplumber`) — currently `.txt`/`.md` only
+- [ ] Quiz generation from uploaded notes
 
 ## License
 
