@@ -89,6 +89,22 @@ pytest
 FLASK_ENV=prod gunicorn wsgi:app
 ```
 
+### Deploy in one click (Render or Railway)
+
+Both platforms build straight from GitHub — zero config needed:
+
+1. Create a **New Web Service** (Render) or **New Project → Deploy from GitHub repo** (Railway).
+2. Pick this repository. The `.python-version` file pins Python 3.11 automatically.
+3. Set the start command to:
+
+   ```bash
+   gunicorn wsgi:app --bind 0.0.0.0:$PORT
+   ```
+
+4. Deploy. On boot the app creates its SQLite schema automatically — no migrations or
+   environment variables required for a demo (set `SECRET_KEY` and `DATABASE_URL` for
+   anything serious; free tiers reset SQLite on redeploy, which is fine for a demo).
+
 ### Configuration
 
 | Variable | Default | Purpose |
