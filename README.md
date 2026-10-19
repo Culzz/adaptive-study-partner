@@ -89,21 +89,28 @@ pytest
 FLASK_ENV=prod gunicorn wsgi:app
 ```
 
-### Deploy in one click (Render or Railway)
+### Deploy on Vercel + Neon (recommended)
 
-Both platforms build straight from GitHub — zero config needed:
+The backend ships as a standard Flask app — Vercel detects `wsgi.py` automatically
+(zero build config), and [Neon](https://neon.tech) provides the free Postgres database.
 
-1. Create a **New Web Service** (Render) or **New Project → Deploy from GitHub repo** (Railway).
-2. Pick this repository. The `.python-version` file pins Python 3.11 automatically.
-3. Set the start command to:
+1. **Create the database** — sign up at [neon.tech](https://neon.tech), create a free
+   project, and copy the **pooled** connection string
+   (`postgresql://user:pass@host/db?sslmode=require`). Add `?sslmode=require` to the
+   URL yourself if it isn't already there.
+2. **Import the repo** — go to [vercel.com/new](https://vercel.com/new), pick this
+   repository, and let Vercel detect the framework (it shows *Flask*). The
+   `.python-version` file pins Python 3.12.
+3. **Set environment variables** for the Production deployment:
+   | Variable | Value |
+   |---|---|
+   | `DATABASE_URL` | the Neon pooled connection string |
+   | `SECRET_KEY` | a long random string (e.g. `openssl rand -hex 32`) |
+4. **Deploy.** On first boot the app creates its tables in Neon automatically —
+   no migrations to run.
 
-   ```bash
-   gunicorn wsgi:app --bind 0.0.0.0:$PORT
-   ```
-
-4. Deploy. On boot the app creates its SQLite schema automatically — no migrations or
-   environment variables required for a demo (set `SECRET_KEY` and `DATABASE_URL` for
-   anything serious; free tiers reset SQLite on redeploy, which is fine for a demo).
+Local development needs none of this: without `DATABASE_URL` it falls back to a
+SQLite file, and `python app.py` runs the dev server as before.
 
 ### Configuration
 

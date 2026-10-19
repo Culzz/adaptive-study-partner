@@ -5,6 +5,7 @@ See README.md for setup instructions and the current development status.
 """
 
 import os
+import tempfile
 
 from flask import Flask
 from flask_cors import CORS
@@ -29,7 +30,14 @@ def create_app(env='dev'):
     CORS(app)
 
     # Upload folder for study notes (size cap set in config.py).
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    # On serverless hosts (e.g. Vercel) the project directory is read-only, so
+    # fall back to the system temp directory instead of crashing at boot.
+    try:
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    except OSError:
+        fallback = os.path.join(tempfile.gettempdir(), 'study-uploads')
+        os.makedirs(fallback, exist_ok=True)
+        app.config['UPLOAD_FOLDER'] = fallback
 
     # Register API blueprints (auth, notes, quizzes, performance).
     from routes import auth_bp, notes_bp, quizzes_bp, performance_bp
