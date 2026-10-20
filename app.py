@@ -26,6 +26,13 @@ def create_app(env='dev'):
     app = Flask(__name__)
     app.config.from_object(config[env])
 
+    if env == 'prod' and app.config['SECRET_KEY'] in (None, '', 'dev-key-change-this'):
+        raise RuntimeError(
+            "SECRET_KEY must be set in production — generate one with "
+            "`openssl rand -hex 32` and pass it as an environment variable "
+            "(see .env.example / README deployment steps)."
+        )
+
     db.init_app(app)
     CORS(app)
 
@@ -54,9 +61,13 @@ def create_app(env='dev'):
 
 
 if __name__ == '__main__':
-    app = create_app(os.getenv('FLASK_ENV', 'dev'))
+    env = os.getenv('FLASK_ENV', 'dev')
+    app = create_app(env)
     app.run(
-        debug=os.getenv('FLASK_DEBUG', 'true').lower() in ('1', 'true', 'yes'),
+        # The Werkzeug debugger is a remote-code-execution risk — only default
+        # it on in the dev environment; `FLASK_DEBUG` can still override.
+        debug=(os.getenv('FLASK_DEBUG', 'true' if env == 'dev' else 'false')
+               .lower() in ('1', 'true', 'yes')),
         host=os.getenv('HOST', '127.0.0.1'),
         port=int(os.getenv('PORT', '5000')),
     )
