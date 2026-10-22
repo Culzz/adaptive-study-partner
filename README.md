@@ -11,6 +11,24 @@ An adaptive study companion for university students: upload notes, take quizzes,
 
 **🚀 Live API: [adaptive-study-partner.vercel.app](https://adaptive-study-partner.vercel.app)** (Vercel serverless + Neon PostgreSQL)
 
+## Architecture
+
+```mermaid
+flowchart TD
+    C[curl / app client / future React frontend]
+    C -- "HTTPS · Authorization: Bearer &lt;JWT&gt;" --> V[Vercel Python runtime]
+    V --> A[app.py app factory]
+    A --> AUTH[auth blueprint<br/>bcrypt verify · JWT HS256 issue]
+    A --> N[notes blueprint<br/>.txt/.md parse · 50 MB cap]
+    A --> Q[quizzes blueprint<br/>per-question grading]
+    A --> P[performance blueprint<br/>forgetting.py Ebbinghaus curve]
+    A --> DB[(Neon PostgreSQL<br/>pooled endpoint · sslmode=require)]
+    A -. "localhost fallback" .-> S[(SQLite file)]
+```
+
+`create_app()` boots tables on first connection (`db.create_all()`), so a fresh
+Postgres (or local SQLite) needs no migration step.
+
 ## How it adapts
 
 Every topic gets a mastery record. After each quiz answer the API updates it:
@@ -167,6 +185,20 @@ curl -s localhost:5000/api/performance/review-plan -H "Authorization: Bearer $TO
 | `Quiz` / `Question` | Quizzes with per-question difficulty (quiz title = topic) |
 | `QuizAttempt` | Per-answer correctness and time spent |
 | `Mastery` | Per-topic score, review count, and forgetting risk |
+
+## Security and Privacy
+
+- **Passwords** are bcrypt-hashed — never stored or logged in plain text; the schema
+  has no plaintext password column.
+- **Sessions** are HS256-signed JWTs with a 7-day expiry, verified on every request.
+- **Production hard-gate**: the app refuses to boot in `prod` without a real
+  `SECRET_KEY`, and the Werkzeug debugger defaults off outside `dev`.
+- **Transport TLS** is enforced by Vercel at the edge; the database URI requires
+  `sslmode=require` end-to-end to Neon.
+- **Uploads** accept only `.txt` / `.md`, are size-capped at 50 MB, and are decoded
+  as UTF-8 with replacement (never executed, never eval'd).
+- **Honest gaps**: no rate limiting or account-lockout yet, and notes are plaintext
+  in the database — don't upload credentials you wouldn't put in a class forum.
 
 ## Roadmap
 
