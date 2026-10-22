@@ -3,9 +3,13 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Flask](https://img.shields.io/badge/Flask-2.3-blue.svg)](https://flask.palletsprojects.com/)
+[![PostgreSQL](https://img.shields.io/badge/db-Neon%20PostgreSQL-2eb0a8.svg)](https://neon.tech/)
+[![Live on Vercel](https://img.shields.io/badge/live-adaptive--study--partner.vercel.app-2eb0a8.svg)](https://adaptive-study-partner.vercel.app)
 [![CI](https://github.com/Culzz/adaptive-study-partner/actions/workflows/ci.yml/badge.svg)](https://github.com/Culzz/adaptive-study-partner/actions/workflows/ci.yml)
 
 An adaptive study companion for university students: upload notes, take quizzes, and get a revision plan prioritised by **forgetting risk** — a spaced-repetition signal that estimates which topics you're about to lose.
+
+**🚀 Live API: [adaptive-study-partner.vercel.app](https://adaptive-study-partner.vercel.app)** (Vercel serverless + Neon PostgreSQL)
 
 ## How it adapts
 

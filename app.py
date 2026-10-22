@@ -54,6 +54,14 @@ def create_app(env='dev'):
     app.register_blueprint(quizzes_bp, url_prefix='/api/quizzes')
     app.register_blueprint(performance_bp, url_prefix='/api/performance')
 
+    @app.route('/api/health')
+    def health():
+        """Liveness probe for uptime monitors."""
+        return jsonify({
+            'service': 'adaptive-study-partner',
+            'ok': True,
+        })
+
     with app.app_context():
         db.create_all()
 
