@@ -7,7 +7,7 @@ See README.md for setup instructions and the current development status.
 import os
 import tempfile
 
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
 
 from config import config
